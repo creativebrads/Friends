@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatDate, daysUntilNextOccurrence, yearsSince, toDateInputValue } from "@/lib/dates";
 import { Card, SectionHeading, EmptyState, Badge, inputClasses, labelClasses, Field, SubmitButton } from "@/components/ui";
-import { addImportantDate, deleteImportantDate } from "@/app/actions/importantDates";
-import { addMemory, deleteMemory } from "@/app/actions/memories";
+import { addImportantDate, deleteImportantDate, updateReminderLeadTime } from "@/app/actions/importantDates";
+import { addMemory, deleteMemory, deletePhoto } from "@/app/actions/memories";
 import { addRelationship, deleteRelationship } from "@/app/actions/relationships";
 import { setCheckInCadence, markContacted } from "@/app/actions/checkins";
 import { deletePerson } from "@/app/actions/people";
@@ -202,22 +202,47 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             {person.importantDates.map((date) => {
               const daysAway = daysUntilNextOccurrence(date.date);
               return (
-                <li key={date.id} className="flex items-center justify-between text-sm">
-                  <span>
-                    <strong>{dateTypeLabels[date.type]}</strong>
-                    {date.label ? ` — ${date.label}` : ""}: {formatDate(date.date, !date.recurring)}
-                    {date.recurring && (
-                      <span className="text-muted">
-                        {" "}
-                        ({daysAway === 0 ? "today!" : `in ${daysAway} day${daysAway === 1 ? "" : "s"}`})
-                      </span>
-                    )}
-                  </span>
-                  <form action={deleteImportantDate.bind(null, person.id, date.id)}>
-                    <button type="submit" className="text-muted hover:text-red-600 text-xs">
-                      Remove
-                    </button>
-                  </form>
+                <li key={date.id} className="text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>
+                      <strong>{dateTypeLabels[date.type]}</strong>
+                      {date.label ? ` — ${date.label}` : ""}: {formatDate(date.date, !date.recurring)}
+                      {date.recurring && (
+                        <span className="text-muted">
+                          {" "}
+                          ({daysAway === 0 ? "today!" : `in ${daysAway} day${daysAway === 1 ? "" : "s"}`})
+                        </span>
+                      )}
+                    </span>
+                    <form action={deleteImportantDate.bind(null, person.id, date.id)}>
+                      <button type="submit" className="text-muted hover:text-red-600 text-xs">
+                        Remove
+                      </button>
+                    </form>
+                  </div>
+                  {date.recurring && (
+                    <details className="mt-0.5">
+                      <summary className="cursor-pointer text-xs text-muted">
+                        Notify me {date.reminderDaysBefore === 0 ? "the day of" : `${date.reminderDaysBefore} day${date.reminderDaysBefore === 1 ? "" : "s"} before`}
+                      </summary>
+                      <form
+                        action={updateReminderLeadTime.bind(null, person.id, date.id)}
+                        className="mt-2 flex items-end gap-2"
+                      >
+                        <Field label="Days before to notify">
+                          <input
+                            type="number"
+                            name="reminderDaysBefore"
+                            min={0}
+                            max={365}
+                            defaultValue={date.reminderDaysBefore}
+                            className={`${inputClasses} w-24`}
+                          />
+                        </Field>
+                        <SubmitButton>Save</SubmitButton>
+                      </form>
+                    </details>
+                  )}
                 </li>
               );
             })}
@@ -240,6 +265,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             </Field>
             <Field label="Date">
               <input type="date" name="date" required className={inputClasses} />
+            </Field>
+            <Field label="Notify me how many days before">
+              <input type="number" name="reminderDaysBefore" min={0} max={365} defaultValue={7} className={inputClasses} />
             </Field>
             <div className="flex items-end gap-2">
               <label className="flex items-center gap-2 text-sm">
@@ -344,13 +372,23 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                     {memory.photos.length > 0 && (
                       <div className="flex gap-2 mt-2 flex-wrap">
                         {memory.photos.map((photo) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            key={photo.id}
-                            src={photo.url}
-                            alt={photo.caption ?? memory.title}
-                            className="h-20 w-20 object-cover rounded-lg border border-border"
-                          />
+                          <div key={photo.id} className="group relative">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={photo.url}
+                              alt={photo.caption ?? memory.title}
+                              className="h-20 w-20 object-cover rounded-lg border border-border"
+                            />
+                            <form action={deletePhoto.bind(null, person.id, photo.id)}>
+                              <button
+                                type="submit"
+                                title="Remove photo"
+                                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-surface border border-border text-xs leading-none opacity-0 group-hover:opacity-100 hover:text-red-600 transition-opacity"
+                              >
+                                ×
+                              </button>
+                            </form>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -367,7 +405,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         )}
         <details className="text-sm">
           <summary className="cursor-pointer text-accent">Add a memory</summary>
-          <form action={addMemory.bind(null, person.id)} className="mt-3 space-y-3">
+          <form action={addMemory.bind(null, person.id)} className="mt-3 space-y-3" encType="multipart/form-data">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Title">
                 <input name="title" required className={inputClasses} placeholder="Weekend in the mountains" />
@@ -382,7 +420,10 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <Field label="Description">
               <textarea name="description" rows={2} className={inputClasses} />
             </Field>
-            <Field label="Photo URLs (one per line, optional)">
+            <Field label="Photos (optional, up to 8MB each)">
+              <input type="file" name="photoFiles" accept="image/*" multiple className={inputClasses} />
+            </Field>
+            <Field label="…or paste photo URLs (one per line, optional)">
               <textarea name="photoUrls" rows={2} className={inputClasses} placeholder="https://…" />
             </Field>
             {person.importantDates.length > 0 && (

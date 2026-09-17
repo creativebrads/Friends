@@ -45,3 +45,7 @@ next-env.d.ts
 # sqlite
 *.db
 *.db-journal
+
+# user-uploaded photos (local disk storage — see src/lib/uploads.ts)
+/public/uploads/*
+!/public/uploads/.gitkeep

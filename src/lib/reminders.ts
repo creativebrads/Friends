@@ -70,14 +70,17 @@ const dateTypeLabels: Record<string, string> = {
 
 /**
  * What's actually worth a push notification today — a narrower set than the
- * dashboard's 30-day window. Important dates page at 7 days out and again on
- * the day; check-ins page on the exact day they come due (not every day
- * they stay overdue); flashbacks and events follow the same "once, on the
- * meaningful day" idea, so a daily cron run never re-sends the same nudge.
+ * dashboard's 30-day window. Important dates fire once, at each date's own
+ * `reminderDaysBefore` (adjustable per date — e.g. a week out for an
+ * anniversary, the day before for a birthday); check-ins fire on the exact
+ * day they come due (not every day they stay overdue); flashbacks and
+ * events follow the same "once, on the meaningful day" idea, so a daily
+ * cron run never re-sends the same nudge.
  */
 export async function getDueTodayNotifications(): Promise<PushMessage[]> {
   const [dates, checkIns, flashbacks, events] = await Promise.all([
-    getUpcomingDates(7),
+    // 366 days out covers any custom lead time (each date's own reminderDaysBefore, capped at 365 when set).
+    getUpcomingDates(366),
     prisma.checkIn.findMany({ include: { person: true } }),
     getTodayFlashbacks(),
     getUpcomingEvents(7),
@@ -86,8 +89,8 @@ export async function getDueTodayNotifications(): Promise<PushMessage[]> {
   const messages: PushMessage[] = [];
 
   for (const date of dates) {
-    if (date.daysAway !== 0 && date.daysAway !== 7) continue;
-    const when = date.daysAway === 0 ? "is today" : "is in a week";
+    if (date.daysAway !== date.reminderDaysBefore) continue;
+    const when = date.daysAway === 0 ? "is today" : date.daysAway === 1 ? "is tomorrow" : `is in ${date.daysAway} days`;
     messages.push({
       title: `${dateTypeLabels[date.type]}${date.label ? ` — ${date.label}` : ""}`,
       body: `${date.person.firstName} ${date.person.lastName ?? ""}'s ${dateTypeLabels[date.type].toLowerCase()} ${when}.`,

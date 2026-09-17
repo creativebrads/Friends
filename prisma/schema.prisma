@@ -96,6 +96,11 @@ model ImportantDate {
   date      DateTime // stored as a real date; year is meaningful even for recurring ones (first occurrence)
   recurring Boolean  @default(true) // most of these repeat annually
 
+  // How many days ahead of the date to send a push notification (0 = the day of).
+  // Adjustable per date, so e.g. an anniversary can nudge a week early while a
+  // birthday only pings the day before.
+  reminderDaysBefore Int @default(7)
+
   memories MemoryImportantDate[]
 
   @@index([personId])

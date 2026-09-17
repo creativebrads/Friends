@@ -26,20 +26,29 @@ Open [http://localhost:3000](http://localhost:3000).
 - **PersonRelationship** — links two people to each other (family members, mutual friends), rendered on both profiles
 - **CheckIn** — a desired contact cadence per person (e.g. every 30 days) plus last-contacted date, used to surface "you haven't talked in a while" nudges
 - **Event** — something you and specific people might want to attend together, matched loosely against interests
+- **PushSubscription** — a browser's Web Push subscription, one row per device that's enabled notifications
 
 ## What's built (v1)
 
 - Full CRUD for people, with an elevated profile page for each person
-- Important dates with "days away" countdown
-- Memories with photos and important-date tagging
+- Important dates with a "days away" countdown and a per-date, adjustable reminder lead time (e.g. a week out for an anniversary, the day before for a birthday)
+- Memories with uploaded photos (or pasted URLs) and important-date tagging
 - Family & mutual-friend connections between people
 - Check-in cadence tracking with a "mark as contacted" action
 - Events with an interested-people list
 - A dashboard surfacing: today's memory flashbacks, dates coming up in the next 30 days, overdue check-ins, and events in the next 60 days
+- Web Push notifications — enable them on the Settings page; the same reminder logic that drives the dashboard fires a notification once, at each item's meaningful moment (see "Reminders" below)
+
+## Reminders & notifications
+
+`GET /api/cron/reminders` (protected by the `CRON_SECRET` env var) computes what's due today and pushes it to every subscribed browser. There's no always-on process in this app to run its own daily timer, so once this is deployed somewhere with a scheduler (e.g. Vercel Cron), point it at that route once a day. Until then, use the "check reminders now" button on Settings to trigger it manually.
+
+## Photo storage
+
+Uploaded photos are written to `public/uploads/` on local disk (see `src/lib/uploads.ts`). That's fine for local dev or a single always-on server, but won't survive a serverless deploy with an ephemeral filesystem (e.g. Vercel) — swap that file for real object storage (Supabase Storage, S3, etc.) before deploying there. Every other part of the app only deals in the URL it returns, so the swap is contained to that one file.
 
 ## Not yet built
 
 - Authentication (currently single-user, no login)
-- Push/text notifications — the dashboard is the reminder surface for now; wiring up Web Push or SMS (Twilio) is the next major piece
-- Photo upload (photos are stored as URLs for now, not uploaded files)
-- Deployment / hosted Postgres database
+- SMS/text notifications (Web Push is built; Twilio SMS would be an alternative/addition)
+- Deployment / hosted Postgres database / hosted object storage
