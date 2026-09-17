@@ -28,6 +28,7 @@ const navLinks = [
   { href: "/", label: "Dashboard" },
   { href: "/people", label: "People" },
   { href: "/events", label: "Events" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

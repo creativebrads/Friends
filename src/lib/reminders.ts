@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { daysUntilNextOccurrence, isSameMonthDay, yearsSince, daysUntil } from "@/lib/dates";
+import type { PushMessage } from "@/lib/push";
 
 export async function getUpcomingDates(daysAhead = 30) {
   const dates = await prisma.importantDate.findMany({
@@ -55,4 +56,71 @@ export async function getUpcomingEvents(daysAhead = 60) {
     orderBy: { startsAt: "asc" },
   });
   return events.map((e) => ({ ...e, daysAway: daysUntil(e.startsAt) }));
+}
+
+const dateTypeLabels: Record<string, string> = {
+  BIRTHDAY: "Birthday",
+  ANNIVERSARY: "Anniversary",
+  GRADUATION: "Graduation",
+  JOB_START: "Job start",
+  ENGAGEMENT: "Engagement",
+  WEDDING: "Wedding",
+  OTHER: "Other",
+};
+
+/**
+ * What's actually worth a push notification today — a narrower set than the
+ * dashboard's 30-day window. Important dates page at 7 days out and again on
+ * the day; check-ins page on the exact day they come due (not every day
+ * they stay overdue); flashbacks and events follow the same "once, on the
+ * meaningful day" idea, so a daily cron run never re-sends the same nudge.
+ */
+export async function getDueTodayNotifications(): Promise<PushMessage[]> {
+  const [dates, checkIns, flashbacks, events] = await Promise.all([
+    getUpcomingDates(7),
+    prisma.checkIn.findMany({ include: { person: true } }),
+    getTodayFlashbacks(),
+    getUpcomingEvents(7),
+  ]);
+
+  const messages: PushMessage[] = [];
+
+  for (const date of dates) {
+    if (date.daysAway !== 0 && date.daysAway !== 7) continue;
+    const when = date.daysAway === 0 ? "is today" : "is in a week";
+    messages.push({
+      title: `${dateTypeLabels[date.type]}${date.label ? ` — ${date.label}` : ""}`,
+      body: `${date.person.firstName} ${date.person.lastName ?? ""}'s ${dateTypeLabels[date.type].toLowerCase()} ${when}.`,
+      url: `/people/${date.personId}`,
+    });
+  }
+
+  for (const checkIn of checkIns) {
+    if (daysUntil(checkIn.nextDueAt) !== 0) continue;
+    messages.push({
+      title: "Time to check in",
+      body: `You planned to check in with ${checkIn.person.firstName} ${checkIn.person.lastName ?? ""} today.`,
+      url: `/people/${checkIn.personId}`,
+    });
+  }
+
+  for (const memory of flashbacks) {
+    messages.push({
+      title: "On this day",
+      body: `${memory.yearsAgo} year${memory.yearsAgo === 1 ? "" : "s"} ago: ${memory.title} with ${memory.person.firstName}.`,
+      url: `/people/${memory.personId}`,
+    });
+  }
+
+  for (const event of events) {
+    if (event.daysAway !== 1 && event.daysAway !== 7) continue;
+    const when = event.daysAway === 1 ? "tomorrow" : "in a week";
+    messages.push({
+      title: event.title,
+      body: `Happening ${when}${event.location ? ` at ${event.location}` : ""}.`,
+      url: "/events",
+    });
+  }
+
+  return messages;
 }

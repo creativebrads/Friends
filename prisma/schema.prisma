@@ -210,3 +210,14 @@ model EventInterest {
   @@id([eventId, personId])
   @@index([personId])
 }
+
+// A browser's Web Push subscription. One row per device/browser that has
+// enabled notifications (there's no login yet, so this isn't scoped to a user).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  endpoint String @unique
+  p256dh   String
+  auth     String
+}
