@@ -39,11 +39,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col font-sans">
         <header className="border-b border-border bg-surface/80 backdrop-blur sticky top-0 z-10">
-          <div className="mx-auto max-w-5xl px-6 py-4 flex items-center justify-between">
+          <div className="mx-auto max-w-5xl px-6 py-4 flex flex-wrap items-center justify-between gap-3">
             <Link href="/" className="font-display text-xl tracking-tight">
               Rolodex
             </Link>
-            <nav className="flex items-center gap-6 text-sm">
+            <nav className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}

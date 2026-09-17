@@ -405,7 +405,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         )}
         <details className="text-sm">
           <summary className="cursor-pointer text-accent">Add a memory</summary>
-          <form action={addMemory.bind(null, person.id)} className="mt-3 space-y-3" encType="multipart/form-data">
+          <form action={addMemory.bind(null, person.id)} className="mt-3 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Title">
                 <input name="title" required className={inputClasses} placeholder="Weekend in the mountains" />

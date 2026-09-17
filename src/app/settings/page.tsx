@@ -10,8 +10,8 @@ export default function SettingsPage() {
       <Card className="p-5 space-y-4">
         <SectionHeading title="Notifications" />
         <p className="text-sm text-muted">
-          Get a push notification for dates coming up in a week (and again on the day), check-ins that
-          are due, memory flashbacks, and events happening soon.
+          Get a push notification for each important date at its own reminder lead time (set per date on
+          a person&rsquo;s profile), check-ins that are due, memory flashbacks, and events happening soon.
         </p>
         <PushNotifications />
         <div className="border-t border-border pt-4">
