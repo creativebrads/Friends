@@ -1,0 +1,212 @@
+// Prisma schema for the Rolodex app.
+// Local dev uses SQLite; swap the datasource to Postgres (Supabase) for
+// production without changing the models themselves.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum RelationshipCategory {
+  FAMILY
+  FRIEND
+  COWORKER
+  ACQUAINTANCE
+  OTHER
+}
+
+enum DateType {
+  BIRTHDAY
+  ANNIVERSARY
+  GRADUATION
+  JOB_START
+  ENGAGEMENT
+  WEDDING
+  OTHER
+}
+
+enum FamilyRelationType {
+  PARENT
+  CHILD
+  SIBLING
+  SPOUSE_PARTNER
+  GRANDPARENT
+  GRANDCHILD
+  OTHER
+}
+
+model Person {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Basics
+  firstName String
+  lastName  String?
+  nickname  String?
+  photoUrl  String?
+  category  RelationshipCategory @default(FRIEND)
+  howWeMet  String?
+  notes     String?
+
+  // Contact info
+  email      String?
+  phone      String?
+  address    String?
+
+  // Work
+  jobTitle String?
+  company  String?
+
+  // Relationship-depth fields (kept simple/flexible as free text for v1;
+  // can be normalized into their own tag tables later if it's worth it)
+  favoriteMeals  String?
+  favoriteTreats String?
+  favoriteDrinks String?
+  hobbies        String?
+  activeProjects String?
+
+  importantDates ImportantDate[]
+  memories       Memory[]
+  checkIn        CheckIn?
+  eventInterests EventInterest[]
+
+  // Relationships to other people (self-referential, e.g. family/mutual friends)
+  relationshipsFrom PersonRelationship[] @relation("RelationshipFrom")
+  relationshipsTo   PersonRelationship[] @relation("RelationshipTo")
+
+  @@index([lastName, firstName])
+}
+
+// Generalized so birthdays, anniversaries, graduations, job starts, etc.
+// are all the same underlying concept: a date worth remembering.
+model ImportantDate {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  type      DateType
+  label     String? // e.g. "Started at Acme", used mainly for OTHER
+  date      DateTime // stored as a real date; year is meaningful even for recurring ones (first occurrence)
+  recurring Boolean  @default(true) // most of these repeat annually
+
+  memories MemoryImportantDate[]
+
+  @@index([personId])
+  @@index([date])
+}
+
+// A journal-style entry: a memory, trip, or moment with a person.
+// `occurredOn` powers "on this day" flashbacks by itself; tagging it to
+// one or more ImportantDates additionally groups memories under a
+// recurring occasion (e.g. every "Christmas" or "Anniversary" memory)
+// so we can eventually say "here's what you two were doing X years ago
+// on your anniversary."
+model Memory {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  occurredOn  DateTime // when the memory actually happened, for flashback lookups
+  location    String?
+
+  photos         Photo[]
+  importantDates MemoryImportantDate[]
+
+  @@index([personId])
+  @@index([occurredOn])
+}
+
+model Photo {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  memoryId String
+  memory   Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  url     String
+  caption String?
+
+  @@index([memoryId])
+}
+
+// Join table: which ImportantDate(s) a Memory is tagged with.
+model MemoryImportantDate {
+  memoryId        String
+  memory          Memory        @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  importantDateId String
+  importantDate   ImportantDate @relation(fields: [importantDateId], references: [id], onDelete: Cascade)
+
+  @@id([memoryId, importantDateId])
+  @@index([importantDateId])
+}
+
+// Self-referential link between two people: family members, mutual
+// friends, etc. Stored one-directional; the app can render it both ways.
+model PersonRelationship {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  personId String
+  person   Person @relation("RelationshipFrom", fields: [personId], references: [id], onDelete: Cascade)
+
+  relatedPersonId String
+  relatedPerson   Person @relation("RelationshipTo", fields: [relatedPersonId], references: [id], onDelete: Cascade)
+
+  type  FamilyRelationType
+  label String? // e.g. "college roommate", used mainly for mutual friends
+
+  @@unique([personId, relatedPersonId])
+  @@index([relatedPersonId])
+}
+
+// Tracks how often you want to stay in touch with someone, and when
+// they were last contacted, to power "you haven't talked in a while" nudges.
+model CheckIn {
+  id        String   @id @default(cuid())
+  updatedAt DateTime @updatedAt
+
+  personId String @unique
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  cadenceDays    Int // desired contact frequency, e.g. every 30 days
+  lastContactAt  DateTime?
+  nextDueAt      DateTime
+}
+
+// A shared event you might both want to attend, matched loosely against
+// people's hobbies/interests.
+model Event {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  title       String
+  description String?
+  location    String?
+  startsAt    DateTime
+
+  interestedPeople EventInterest[]
+
+  @@index([startsAt])
+}
+
+model EventInterest {
+  eventId  String
+  event    Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, personId])
+  @@index([personId])
+}
