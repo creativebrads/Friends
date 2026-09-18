@@ -10,13 +10,22 @@ An elevated, modern rolodex for the people who matter to you — friends, family
 
 ## Getting started
 
+Requires [Node.js](https://nodejs.org) 22+ installed on your machine.
+
 ```bash
+git clone https://github.com/creativebrads/Friends.git
+cd Friends
 npm install
-npx prisma migrate dev   # creates the local SQLite database
+cp .env.example .env      # then fill in the values — see comments in that file
+npx prisma migrate dev    # creates the local SQLite database
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+Notifications need a real VAPID keypair to work: run `npx web-push generate-vapid-keys` and paste the
+output into `.env` as described in `.env.example`. Without that, everything else in the app still works
+— only the "Enable notifications" button on Settings will be a no-op.
 
 ## Data model
 
