@@ -12,11 +12,18 @@ const TICKETMASTER_BASE_URL = "https://app.ticketmaster.com/discovery/v2/events.
 // as a Settings-page control since there's no "adjustable in-app" UI for this
 // yet — when that gets built, this array becomes the seed data for a DB table
 // instead of a code constant, but the sync logic below doesn't need to change.
-const TEAMS: { name: string; keyword: string; priceThreshold: number }[] = [
-  { name: "Toronto Blue Jays", keyword: "Toronto Blue Jays", priceThreshold: 40 },
-  { name: "Toronto Raptors", keyword: "Toronto Raptors", priceThreshold: 30 },
-  { name: "Toronto Maple Leafs", keyword: "Toronto Maple Leafs", priceThreshold: 70 },
-  { name: "Toronto FC", keyword: "Toronto FC", priceThreshold: 30 },
+//
+// Ticketmaster's `keyword` search is a loose text match, not an exact team
+// lookup — "Toronto Maple Leafs" also pulled in "Maple Leaf Pro Wrestling",
+// and "Toronto FC" pulled in unrelated clubs like "Inter Toronto FC" and "AFC
+// Toronto" (both contain the same words). expectedVenue filters those back
+// out: each of these teams only plays home games at one arena/stadium, so an
+// event that matched the keyword but isn't at that venue isn't a real match.
+const TEAMS: { name: string; keyword: string; expectedVenue: string; priceThreshold: number }[] = [
+  { name: "Toronto Blue Jays", keyword: "Toronto Blue Jays", expectedVenue: "Rogers Centre", priceThreshold: 40 },
+  { name: "Toronto Raptors", keyword: "Toronto Raptors", expectedVenue: "Scotiabank Arena", priceThreshold: 30 },
+  { name: "Toronto Maple Leafs", keyword: "Toronto Maple Leafs", expectedVenue: "Scotiabank Arena", priceThreshold: 70 },
+  { name: "Toronto FC", keyword: "Toronto FC", expectedVenue: "BMO Field", priceThreshold: 30 },
 ];
 
 type TicketmasterPriceRange = {
@@ -121,8 +128,13 @@ export async function syncTicketmasterEvents(daysAhead = 30): Promise<Ticketmast
     }
 
     const body: TicketmasterResponse = await response.json();
-    const events = body._embedded?.events ?? [];
+    const allEvents = body._embedded?.events ?? [];
+    const events = allEvents.filter((event) => {
+      const venueName = event._embedded?.venues?.[0]?.name ?? "";
+      return venueName.toLowerCase().includes(team.expectedVenue.toLowerCase());
+    });
     fetched += events.length;
+    skipped += allEvents.length - events.length;
 
     for (const event of events) {
       const mapped = mapTicketmasterEvent(event);
