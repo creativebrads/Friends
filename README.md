@@ -48,6 +48,7 @@ output into `.env` as described in `.env.example`. Without that, everything else
 - A dashboard surfacing: today's memory flashbacks, dates coming up in the next 30 days, overdue check-ins, and events in the next 60 days
 - Web Push notifications — enable them on the Settings page; the same reminder logic that drives the dashboard fires a notification once, at each item's meaningful moment (see "Reminders" below)
 - EDMTrain sync — pulls upcoming electronic events near a set location (defaults to Toronto) into the Events list (see "External event sources" below)
+- Ticketmaster sync — pulls upcoming home games for four Toronto teams and sends a one-time push notification when a game's lowest listed price drops to or under a per-team threshold (see "External event sources" below)
 
 ## Reminders & notifications
 
@@ -58,6 +59,10 @@ output into `.env` as described in `.env.example`. Without that, everything else
 `src/lib/edmtrain.ts` fetches upcoming events from [EDMTrain's public API](https://edmtrain.com/developer-api) and imports them into the `Event` table (deduplicated by EDMTrain's own event ID, so re-running the sync updates existing rows instead of creating copies). Needs `EDMTRAIN_API_KEY` set in `.env` — free, but tied to your own EDMTrain account; see `.env.example`. Trigger it with the "Sync EDMTrain events now" button on the Events page, or `GET /api/cron/edmtrain-sync` (same `CRON_SECRET` protection as the reminders route) on a daily schedule once deployed.
 
 The response-parsing part of that file (`mapEdmtrainEvent`) was written from EDMTrain's public documentation without being able to test against a live response — the request/auth/dedup logic around it is solid, but if imported events come through with a missing title, date, or ticket link, that function is the first place to check and adjust field names.
+
+`src/lib/ticketmaster.ts` does the same against [Ticketmaster's Discovery API](https://developer.ticketmaster.com) for four Toronto teams (Blue Jays, Raptors, Maple Leafs, Toronto FC), each with its own price-alert threshold (defaults: $40/$30/$70/$30 CAD) hardcoded in that file's `TEAMS` array — there's no in-app settings UI for these yet, so edit that array directly to change a team or threshold. A game only triggers one notification, the first time its lowest listed price drops to or under its threshold (`Event.priceAlertSentAt` tracks that so a daily sync doesn't repeat itself). Needs `TICKETMASTER_API_KEY` in `.env` — free and self-serve, issued instantly on signup at developer.ticketmaster.com, no approval wait like EDMTrain. Trigger it with the "Sync ticket prices now" button on the Events page, or `GET /api/cron/ticketmaster-sync` (same `CRON_SECRET` pattern) on a daily schedule.
+
+Unlike EDMTrain, this one's field mapping is verified against a real (mocked) response shape and its price-alert dedup logic was tested directly — see the commit history for details — so it should be more reliable out of the gate, though it still hasn't seen Ticketmaster's actual live API.
 
 ## Photo storage
 

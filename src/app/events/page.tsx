@@ -3,9 +3,11 @@ import { formatDate, toDateInputValue } from "@/lib/dates";
 import { createEvent, deleteEvent } from "@/app/actions/events";
 import { Card, SectionHeading, EmptyState, Badge, inputClasses, labelClasses, Field, SubmitButton } from "@/components/ui";
 import { EdmtrainSync } from "@/components/edmtrain-sync";
+import { TicketmasterSync } from "@/components/ticketmaster-sync";
 
 const sourceLabels: Record<string, string> = {
   edmtrain: "EDMTrain",
+  ticketmaster: "Ticketmaster",
 };
 
 // Always reflect newly added/removed events, never a stale build-time snapshot.
@@ -40,6 +42,12 @@ export default async function EventsPage() {
                     </p>
                     {event.location && <p className="text-xs text-muted">{event.location}</p>}
                     {event.description && <p className="text-sm mt-1">{event.description}</p>}
+                    {event.lowestPrice != null && (
+                      <p className="text-xs text-muted">
+                        From ${event.lowestPrice} {event.priceCurrency}
+                        {event.priceAlertSentAt && <span className="text-accent"> · you were notified about this price</span>}
+                      </p>
+                    )}
                     {event.ticketUrl && (
                       <a href={event.ticketUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">
                         Tickets / event page
@@ -70,6 +78,18 @@ export default async function EventsPage() {
           key in <code>.env</code> — see <code>.env.example</code>.
         </p>
         <EdmtrainSync />
+      </Card>
+
+      <Card className="p-5 space-y-3">
+        <SectionHeading title="Toronto sports tickets" />
+        <p className="text-sm text-muted">
+          Pulls upcoming Blue Jays, Raptors, Maple Leafs, and Toronto FC home games in the next 30 days,
+          and sends a notification the first time a game&rsquo;s lowest listed price drops to or under
+          your threshold (Jays $40, Raptors $30, Leafs $70, TFC $30 — edit the defaults in{" "}
+          <code>src/lib/ticketmaster.ts</code> until this has its own settings page). Requires a
+          Ticketmaster API key in <code>.env</code> — see <code>.env.example</code>.
+        </p>
+        <TicketmasterSync />
       </Card>
 
       <Card className="p-5">

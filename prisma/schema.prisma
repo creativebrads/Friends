@@ -54,9 +54,9 @@ model Person {
   notes     String?
 
   // Contact info
-  email      String?
-  phone      String?
-  address    String?
+  email   String?
+  phone   String?
+  address String?
 
   // Work
   jobTitle String?
@@ -185,9 +185,9 @@ model CheckIn {
   personId String @unique
   person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
-  cadenceDays    Int // desired contact frequency, e.g. every 30 days
-  lastContactAt  DateTime?
-  nextDueAt      DateTime
+  cadenceDays   Int // desired contact frequency, e.g. every 30 days
+  lastContactAt DateTime?
+  nextDueAt     DateTime
 }
 
 // A shared event you might both want to attend, matched loosely against
@@ -203,11 +203,19 @@ model Event {
   ticketUrl   String?
 
   // Set when this event was imported from an external listing service (e.g.
-  // "edmtrain") rather than added by hand. externalId is that service's own
-  // event ID, so a repeated sync can update the same row instead of creating
-  // a duplicate. Both stay null for events you add yourself.
+  // "edmtrain", "ticketmaster") rather than added by hand. externalId is that
+  // service's own event ID, so a repeated sync can update the same row
+  // instead of creating a duplicate. Both stay null for events you add yourself.
   source     String?
   externalId String?
+
+  // Lowest listed ticket price, for sources that provide one (e.g. Ticketmaster).
+  // priceAlertSentAt marks that we've already notified about this event crossing
+  // under its price threshold, so a daily sync doesn't re-notify every day it
+  // stays cheap — only once, the first time it drops low enough.
+  lowestPrice      Float?
+  priceCurrency    String?
+  priceAlertSentAt DateTime?
 
   interestedPeople EventInterest[]
 
