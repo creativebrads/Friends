@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { formatDate, toDateInputValue } from "@/lib/dates";
 import { createEvent, deleteEvent } from "@/app/actions/events";
-import { Card, SectionHeading, EmptyState, inputClasses, labelClasses, Field, SubmitButton } from "@/components/ui";
+import { Card, SectionHeading, EmptyState, Badge, inputClasses, labelClasses, Field, SubmitButton } from "@/components/ui";
+import { EdmtrainSync } from "@/components/edmtrain-sync";
+
+const sourceLabels: Record<string, string> = {
+  edmtrain: "EDMTrain",
+};
 
 // Always reflect newly added/removed events, never a stale build-time snapshot.
 export const dynamic = "force-dynamic";
@@ -31,9 +36,15 @@ export default async function EventsPage() {
                   <div>
                     <p className="font-medium text-sm">
                       {event.title} <span className="text-muted font-normal">· {formatDate(event.startsAt)}</span>
+                      {event.source && <span className="ml-2"><Badge>{sourceLabels[event.source] ?? event.source}</Badge></span>}
                     </p>
                     {event.location && <p className="text-xs text-muted">{event.location}</p>}
                     {event.description && <p className="text-sm mt-1">{event.description}</p>}
+                    {event.ticketUrl && (
+                      <a href={event.ticketUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">
+                        Tickets / event page
+                      </a>
+                    )}
                     {event.interestedPeople.length > 0 && (
                       <p className="text-xs text-muted mt-1">
                         Interested: {event.interestedPeople.map((ip) => `${ip.person.firstName} ${ip.person.lastName}`).join(", ")}
@@ -50,6 +61,15 @@ export default async function EventsPage() {
             ))}
           </ul>
         )}
+      </Card>
+
+      <Card className="p-5 space-y-3">
+        <SectionHeading title="EDMTrain" />
+        <p className="text-sm text-muted">
+          Pulls upcoming electronic events near Toronto into the list above. Requires an EDMTrain API
+          key in <code>.env</code> — see <code>.env.example</code>.
+        </p>
+        <EdmtrainSync />
       </Card>
 
       <Card className="p-5">

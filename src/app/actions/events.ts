@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { parseDateInput } from "@/lib/dates";
+import { syncEdmtrainEvents } from "@/lib/edmtrain";
 
 export async function createEvent(formData: FormData) {
   const title = (formData.get("title") as string)?.trim();
@@ -36,4 +37,11 @@ export async function deleteEvent(eventId: string) {
   await prisma.event.delete({ where: { id: eventId } });
   revalidatePath("/events");
   revalidatePath("/");
+}
+
+export async function syncEdmtrainNow() {
+  const result = await syncEdmtrainEvents();
+  revalidatePath("/events");
+  revalidatePath("/");
+  return result;
 }

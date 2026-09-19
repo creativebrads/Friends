@@ -200,9 +200,18 @@ model Event {
   description String?
   location    String?
   startsAt    DateTime
+  ticketUrl   String?
+
+  // Set when this event was imported from an external listing service (e.g.
+  // "edmtrain") rather than added by hand. externalId is that service's own
+  // event ID, so a repeated sync can update the same row instead of creating
+  // a duplicate. Both stay null for events you add yourself.
+  source     String?
+  externalId String?
 
   interestedPeople EventInterest[]
 
+  @@unique([source, externalId])
   @@index([startsAt])
 }
 

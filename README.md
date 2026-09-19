@@ -47,10 +47,17 @@ output into `.env` as described in `.env.example`. Without that, everything else
 - Events with an interested-people list
 - A dashboard surfacing: today's memory flashbacks, dates coming up in the next 30 days, overdue check-ins, and events in the next 60 days
 - Web Push notifications — enable them on the Settings page; the same reminder logic that drives the dashboard fires a notification once, at each item's meaningful moment (see "Reminders" below)
+- EDMTrain sync — pulls upcoming electronic events near a set location (defaults to Toronto) into the Events list (see "External event sources" below)
 
 ## Reminders & notifications
 
 `GET /api/cron/reminders` (protected by the `CRON_SECRET` env var) computes what's due today and pushes it to every subscribed browser. There's no always-on process in this app to run its own daily timer, so once this is deployed somewhere with a scheduler (e.g. Vercel Cron), point it at that route once a day. Until then, use the "check reminders now" button on Settings to trigger it manually.
+
+## External event sources
+
+`src/lib/edmtrain.ts` fetches upcoming events from [EDMTrain's public API](https://edmtrain.com/developer-api) and imports them into the `Event` table (deduplicated by EDMTrain's own event ID, so re-running the sync updates existing rows instead of creating copies). Needs `EDMTRAIN_API_KEY` set in `.env` — free, but tied to your own EDMTrain account; see `.env.example`. Trigger it with the "Sync EDMTrain events now" button on the Events page, or `GET /api/cron/edmtrain-sync` (same `CRON_SECRET` protection as the reminders route) on a daily schedule once deployed.
+
+The response-parsing part of that file (`mapEdmtrainEvent`) was written from EDMTrain's public documentation without being able to test against a live response — the request/auth/dedup logic around it is solid, but if imported events come through with a missing title, date, or ticket link, that function is the first place to check and adjust field names.
 
 ## Photo storage
 
